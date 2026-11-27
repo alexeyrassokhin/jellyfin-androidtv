@@ -689,4 +689,5 @@
     <string name="truehd">TrueHD</string>
     <string name="eac3_atmos">DD+ Atmos</string>
     <string name="truehd_atmos">TrueHD Atmos</string>
+    <string name="lbl_detect_black_bars">Автоопределение чёрных полос</string>
 </resources>

@@ -74,6 +74,7 @@ import timber.log.Timber;
 @OptIn(markerClass = UnstableApi.class)
 public class VideoManager {
     private ZoomMode mZoomMode;
+    private int mManualZoomPercent = 100;
     private Activity mActivity;
     private Equalizer mEqualizer;
     private DynamicsProcessing mDynamicsProcessing;
@@ -82,6 +83,8 @@ public class VideoManager {
     private PlaybackOverlayFragmentHelper _helper;
     public ExoPlayer mExoPlayer;
     private PlayerView mExoPlayerView;
+    private final VideoSurfaceZoom videoSurfaceZoom;
+    private final AutoBlackBarZoom autoBlackBarZoom;
     private Handler mHandler = new Handler();
 
     private long mMetaDuration = -1;
@@ -119,6 +122,9 @@ public class VideoManager {
 
         mExoPlayerView = view.findViewById(R.id.exoPlayerView);
         mExoPlayerView.setPlayer(mExoPlayer);
+        videoSurfaceZoom = new VideoSurfaceZoom(mExoPlayerView);
+        autoBlackBarZoom = new AutoBlackBarZoom(mExoPlayerView, videoSurfaceZoom, mHandler,
+                () -> mExoPlayer != null && mExoPlayer.isPlaying() && !isContracted);
         int strokeColor = userPreferences.get(UserPreferences.Companion.getSubtitleTextStrokeColor()).intValue();
         int textWeight = userPreferences.get(UserPreferences.Companion.getSubtitlesTextWeight());
         CaptionStyleCompat subtitleStyle = new CaptionStyleCompat(
@@ -280,7 +286,21 @@ public class VideoManager {
         return mZoomMode;
     }
 
+    /** The manually selected video zoom factor, expressed as a percentage. */
+    public int getManualZoomPercent() {
+        return mManualZoomPercent;
+    }
+
+    /**
+     * Enlarge the actual video surface layout without scaling the controls or subtitles.
+     */
+    public void setManualZoomPercent(int percent) {
+        mManualZoomPercent = Math.min(160, Math.max(100, Math.round(percent / 5f) * 5));
+        setZoom(ZoomMode.MANUAL);
+    }
+
     public void setZoom(@NonNull ZoomMode mode) {
+        autoBlackBarZoom.stop();
         mZoomMode = mode;
         switch (mode) {
             case FIT:
@@ -292,7 +312,16 @@ public class VideoManager {
             case STRETCH:
                 mExoPlayerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FILL);
                 break;
+            case MANUAL:
+            case DETECT_BLACK_BARS:
+                mExoPlayerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
+                break;
         }
+
+        // Use a centered, enlarged layout rather than scaling a SurfaceView.
+        // On Shield the View transform produced stretched edge pixels.
+        videoSurfaceZoom.setScale(mode == ZoomMode.MANUAL ? mManualZoomPercent / 100f : 1f);
+        if (mode == ZoomMode.DETECT_BLACK_BARS) autoBlackBarZoom.start();
     }
 
     public void setMetaDuration(long duration) {
@@ -387,6 +416,8 @@ public class VideoManager {
     }
 
     public void setMediaStreamInfo(ApiClient api, StreamInfo streamInfo) {
+        // Do not carry a detected crop from one stream/episode to another.
+        if (mZoomMode == ZoomMode.DETECT_BLACK_BARS) autoBlackBarZoom.start();
         String path = streamInfo.getMediaUrl();
         if (path == null) {
             Timber.w("Video path is null cannot continue");
@@ -601,6 +632,8 @@ public class VideoManager {
     }
 
     public void destroy() {
+        autoBlackBarZoom.stop();
+        videoSurfaceZoom.release();
         mPlaybackControllerNotifiable = null;
         stopPlayback();
         releasePlayer();

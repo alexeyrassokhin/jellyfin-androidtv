@@ -29,6 +29,7 @@ class ZoomAction(
 	) {
 		videoPlayerAdapter.leanbackOverlayFragment.setFading(false)
 		dismissPopup()
+		val currentManualZoom = playbackController.manualZoomPercent
 		popup = popupMenu(context, view, Gravity.END) {
 			item(context.getString(R.string.lbl_fit)) {
 				playbackController.setZoom(ZoomMode.FIT)
@@ -46,6 +47,30 @@ class ZoomAction(
 				playbackController.setZoom(ZoomMode.STRETCH)
 			}.apply {
 				isChecked = playbackController.zoomMode == ZoomMode.STRETCH
+			}
+
+			item(context.getString(R.string.lbl_detect_black_bars)) {
+				playbackController.setZoom(ZoomMode.DETECT_BLACK_BARS)
+			}.apply {
+				isChecked = playbackController.zoomMode == ZoomMode.DETECT_BLACK_BARS
+			}
+
+			item(context.getString(R.string.lbl_zoom_increase, currentManualZoom)) {
+				playbackController.setManualZoomPercent(currentManualZoom + 5)
+			}
+			item(context.getString(R.string.lbl_zoom_decrease, currentManualZoom)) {
+				playbackController.setManualZoomPercent(currentManualZoom - 5)
+			}
+			item(context.getString(R.string.lbl_zoom_reset)) {
+				playbackController.setZoom(ZoomMode.FIT)
+			}
+			for (percent in listOf(125, 135, 150)) {
+				item(context.getString(R.string.lbl_zoom_preset, percent)) {
+					playbackController.setManualZoomPercent(percent)
+				}.apply {
+					isChecked = playbackController.zoomMode == ZoomMode.MANUAL &&
+						currentManualZoom == percent
+				}
 			}
 		}
 		popup?.menu?.setGroupCheckable(0, true, true)

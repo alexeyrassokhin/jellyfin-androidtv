@@ -5,7 +5,9 @@ on:
     branches:
       - master
       - release-*
+      - feature/manual-video-zoom
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

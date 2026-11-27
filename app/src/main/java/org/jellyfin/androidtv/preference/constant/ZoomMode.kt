@@ -20,5 +20,8 @@ enum class ZoomMode(
 	 * Sets the zoom mode to stretch.
 	 */
 	STRETCH(R.string.lbl_stretch),
+
+	/** Manual zoom for the video surface. */
+	MANUAL(R.string.lbl_manual_zoom),
 }
 

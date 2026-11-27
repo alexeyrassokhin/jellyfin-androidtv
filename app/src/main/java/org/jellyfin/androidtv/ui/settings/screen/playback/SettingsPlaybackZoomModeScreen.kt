@@ -33,7 +33,7 @@ fun SettingsPlaybackZoomModeScreen() {
 			)
 		}
 
-		items(ZoomMode.entries) { entry ->
+		items(ZoomMode.entries.filter { it != ZoomMode.MANUAL }) { entry ->
 			ListButton(
 				headingContent = { Text(stringResource(entry.nameRes)) },
 				trailingContent = { RadioButton(checked = playerZoomMode == entry) },

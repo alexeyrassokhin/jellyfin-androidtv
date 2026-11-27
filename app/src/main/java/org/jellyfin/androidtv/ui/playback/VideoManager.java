@@ -74,6 +74,7 @@ import timber.log.Timber;
 @OptIn(markerClass = UnstableApi.class)
 public class VideoManager {
     private ZoomMode mZoomMode;
+    private int mManualZoomPercent = 100;
     private Activity mActivity;
     private Equalizer mEqualizer;
     private DynamicsProcessing mDynamicsProcessing;
@@ -280,6 +281,20 @@ public class VideoManager {
         return mZoomMode;
     }
 
+    /** The manually selected video zoom factor, expressed as a percentage. */
+    public int getManualZoomPercent() {
+        return mManualZoomPercent;
+    }
+
+    /**
+     * Zoom the actual video surface. Scaling the whole PlayerView would also enlarge
+     * the playback controls and subtitles. Test on hardware with HDR/SurfaceView.
+     */
+    public void setManualZoomPercent(int percent) {
+        mManualZoomPercent = Math.min(160, Math.max(100, Math.round(percent / 5f) * 5));
+        setZoom(ZoomMode.MANUAL);
+    }
+
     public void setZoom(@NonNull ZoomMode mode) {
         mZoomMode = mode;
         switch (mode) {
@@ -292,6 +307,18 @@ public class VideoManager {
             case STRETCH:
                 mExoPlayerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FILL);
                 break;
+            case MANUAL:
+                mExoPlayerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
+                break;
+        }
+
+        // Do not transform the entire PlayerView: controls and separate text
+        // subtitles should retain their normal dimensions.
+        View surface = mExoPlayerView.getVideoSurfaceView();
+        if (surface != null) {
+            float scale = mode == ZoomMode.MANUAL ? mManualZoomPercent / 100f : 1f;
+            surface.setScaleX(scale);
+            surface.setScaleY(scale);
         }
     }
 

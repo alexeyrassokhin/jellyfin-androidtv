@@ -83,6 +83,7 @@ public class VideoManager {
     private PlaybackOverlayFragmentHelper _helper;
     public ExoPlayer mExoPlayer;
     private PlayerView mExoPlayerView;
+    private final VideoSurfaceZoom videoSurfaceZoom;
     private final AutoBlackBarZoom autoBlackBarZoom;
     private Handler mHandler = new Handler();
 
@@ -121,7 +122,8 @@ public class VideoManager {
 
         mExoPlayerView = view.findViewById(R.id.exoPlayerView);
         mExoPlayerView.setPlayer(mExoPlayer);
-        autoBlackBarZoom = new AutoBlackBarZoom(mExoPlayerView, mHandler,
+        videoSurfaceZoom = new VideoSurfaceZoom(mExoPlayerView);
+        autoBlackBarZoom = new AutoBlackBarZoom(mExoPlayerView, videoSurfaceZoom, mHandler,
                 () -> mExoPlayer != null && mExoPlayer.isPlaying() && !isContracted);
         int strokeColor = userPreferences.get(UserPreferences.Companion.getSubtitleTextStrokeColor()).intValue();
         int textWeight = userPreferences.get(UserPreferences.Companion.getSubtitlesTextWeight());
@@ -290,8 +292,7 @@ public class VideoManager {
     }
 
     /**
-     * Zoom the actual video surface. Scaling the whole PlayerView would also enlarge
-     * the playback controls and subtitles. Test on hardware with HDR/SurfaceView.
+     * Enlarge the actual video surface layout without scaling the controls or subtitles.
      */
     public void setManualZoomPercent(int percent) {
         mManualZoomPercent = Math.min(160, Math.max(100, Math.round(percent / 5f) * 5));
@@ -317,14 +318,9 @@ public class VideoManager {
                 break;
         }
 
-        // Do not transform the entire PlayerView: controls and separate text
-        // subtitles should retain their normal dimensions.
-        View surface = mExoPlayerView.getVideoSurfaceView();
-        if (surface != null) {
-            float scale = mode == ZoomMode.MANUAL ? mManualZoomPercent / 100f : 1f;
-            surface.setScaleX(scale);
-            surface.setScaleY(scale);
-        }
+        // Use a centered, enlarged layout rather than scaling a SurfaceView.
+        // On Shield the View transform produced stretched edge pixels.
+        videoSurfaceZoom.setScale(mode == ZoomMode.MANUAL ? mManualZoomPercent / 100f : 1f);
         if (mode == ZoomMode.DETECT_BLACK_BARS) autoBlackBarZoom.start();
     }
 
@@ -637,6 +633,7 @@ public class VideoManager {
 
     public void destroy() {
         autoBlackBarZoom.stop();
+        videoSurfaceZoom.release();
         mPlaybackControllerNotifiable = null;
         stopPlayback();
         releasePlayer();

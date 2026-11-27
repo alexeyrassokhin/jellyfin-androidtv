@@ -28,6 +28,7 @@ final class AutoBlackBarZoom {
     private static final float SCALE_TOLERANCE = 0.035f;
 
     private final PlayerView playerView;
+    private final VideoSurfaceZoom videoSurfaceZoom;
     private final Handler handler;
     private final BooleanSupplier isPlaying;
     private final int[] pixels = new int[SAMPLE_WIDTH * SAMPLE_HEIGHT];
@@ -41,8 +42,9 @@ final class AutoBlackBarZoom {
     private float candidateScale = 1f;
     private int candidateCount;
 
-    AutoBlackBarZoom(PlayerView playerView, Handler handler, BooleanSupplier isPlaying) {
+    AutoBlackBarZoom(PlayerView playerView, VideoSurfaceZoom videoSurfaceZoom, Handler handler, BooleanSupplier isPlaying) {
         this.playerView = playerView;
+        this.videoSurfaceZoom = videoSurfaceZoom;
         this.handler = handler;
         this.isPlaying = isPlaying;
     }
@@ -117,7 +119,8 @@ final class AutoBlackBarZoom {
                         return;
                     }
                     float scale = BlackBarDetector.fillScale(bounds, SAMPLE_WIDTH, SAMPLE_HEIGHT,
-                            playerView.getWidth(), playerView.getHeight(), surface.getWidth(), surface.getHeight());
+                            playerView.getWidth(), playerView.getHeight(),
+                            videoSurfaceZoom.getBaseWidth(), videoSurfaceZoom.getBaseHeight());
                     acceptSample(scale);
                 } finally {
                     bitmap.recycle();
@@ -151,10 +154,6 @@ final class AutoBlackBarZoom {
     }
 
     private void applyScale(float scale) {
-        View surface = playerView.getVideoSurfaceView();
-        if (surface != null) {
-            surface.setScaleX(scale);
-            surface.setScaleY(scale);
-        }
+        videoSurfaceZoom.setScale(scale);
     }
 }

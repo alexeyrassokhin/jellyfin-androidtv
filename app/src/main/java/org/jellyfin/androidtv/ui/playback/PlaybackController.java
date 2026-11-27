@@ -160,15 +160,15 @@ public class PlaybackController implements PlaybackControllerNotifiable {
     public void init(@NonNull VideoManager mgr, @NonNull CustomPlaybackOverlayFragment fragment) {
         mVideoManager = mgr;
         mVideoManager.subscribe(this);
-        mVideoManager.setZoom(userPreferences.getValue().get(UserPreferences.Companion.getPlayerZoomMode()));
         mFragment = fragment;
-        restoreSavedManualZoom();
+        restoreSavedZoom();
         directStreamLiveTv = userPreferences.getValue().get(UserPreferences.Companion.getLiveTvDirectPlayEnabled());
     }
 
     public void setItems(List<BaseItemDto> items) {
         mItems = items;
         mCurrentIndex = 0;
+        restoreSavedZoom();
     }
 
     public float getPlaybackSpeed() {
@@ -939,7 +939,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
             resetPlayerErrors();
             mCurrentIndex++;
             videoQueueManager.getValue().setCurrentMediaPosition(mCurrentIndex);
-            restoreSavedManualZoom();
+            restoreSavedZoom();
             Timber.i("Moving to index: %d out of %d total items.", mCurrentIndex, mItems.size());
             spinnerOff = false;
             play(0);
@@ -953,7 +953,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
             resetPlayerErrors();
             mCurrentIndex--;
             videoQueueManager.getValue().setCurrentMediaPosition(mCurrentIndex);
-            restoreSavedManualZoom();
+            restoreSavedZoom();
             Timber.i("Moving to index: %d out of %d total items.", mCurrentIndex, mItems.size());
             spinnerOff = false;
             play(0);
@@ -1211,7 +1211,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         if ((stillWatchingEnabled || nextUpEnabled) && curItem.getType() != BaseItemKind.TRAILER) {
             mCurrentIndex++;
             videoQueueManager.getValue().setCurrentMediaPosition(mCurrentIndex);
-            restoreSavedManualZoom();
+            restoreSavedZoom();
             spinnerOff = false;
 
             if (mFragment != null) {
@@ -1358,10 +1358,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
     public void setZoom(@NonNull ZoomMode mode) {
         if (!hasInitializedVideoManager()) return;
         mVideoManager.setZoom(mode);
-        if (mode != ZoomMode.MANUAL && mFragment != null) {
-            String key = currentManualZoomKey();
-            if (key != null) manualZoomPrefs().edit().remove(key).apply();
-        }
+        if (mode != ZoomMode.MANUAL) saveZoom(mode.name());
     }
 
     public int getManualZoomPercent() {
@@ -1377,30 +1374,67 @@ public class PlaybackController implements PlaybackControllerNotifiable {
             return;
         }
         mVideoManager.setManualZoomPercent(normal);
-        String key = currentManualZoomKey();
-        if (key != null && mFragment != null) manualZoomPrefs().edit().putInt(key, normal).apply();
+        saveZoom("MANUAL:" + normal);
     }
 
     @Nullable
-    private String currentManualZoomKey() {
-        BaseItemDto item = getCurrentlyPlayingItem();
-        return item != null && item.getId() != null ? item.getId().toString() : null;
+    private String currentZoomKey() {
+        BaseItemDto item = mItems != null ? getCurrentlyPlayingItem() : null;
+        if (item == null || item.getId() == null) return null;
+        // An episode inherits its series' setting, including across seasons.
+        if (item.getType() == BaseItemKind.EPISODE && item.getSeriesId() != null) {
+            return "series:" + item.getSeriesId();
+        }
+        return "item:" + item.getId();
     }
 
     private SharedPreferences manualZoomPrefs() {
         return mFragment.requireContext().getSharedPreferences(MANUAL_ZOOM_PREFS, Context.MODE_PRIVATE);
     }
 
-    /** Restore the manual zoom override when switching episodes or restarting playback. */
-    private void restoreSavedManualZoom() {
-        if (!hasInitializedVideoManager() || mFragment == null) return;
-        String key = currentManualZoomKey();
-        int saved = key != null ? manualZoomPrefs().getInt(key, 0) : 0;
-        if (saved >= 105 && saved <= 160 && saved % 5 == 0) {
-            mVideoManager.setManualZoomPercent(saved);
-        } else {
-            mVideoManager.setZoom(userPreferences.getValue().get(UserPreferences.Companion.getPlayerZoomMode()));
+    private void saveZoom(String value) {
+        String key = currentZoomKey();
+        if (key != null && mFragment != null && mFragment.isAdded()) {
+            manualZoomPrefs().edit().putString(key, value).apply();
         }
+    }
+
+    /** Restore the selected mode, not the previously detected crop, for a movie or series. */
+    private void restoreSavedZoom() {
+        if (!hasInitializedVideoManager() || mFragment == null || !mFragment.isAdded()) return;
+        String key = currentZoomKey();
+        SharedPreferences prefs = manualZoomPrefs();
+        String saved = key != null ? prefs.getString(key, null) : null;
+
+        if (saved != null) {
+            try {
+                if (saved.startsWith("MANUAL:")) {
+                    int percent = Integer.parseInt(saved.substring(7));
+                    if (percent >= 105 && percent <= 160 && percent % 5 == 0) {
+                        mVideoManager.setManualZoomPercent(percent);
+                        return;
+                    }
+                } else {
+                    ZoomMode mode = ZoomMode.valueOf(saved);
+                    if (mode != ZoomMode.MANUAL) {
+                        mVideoManager.setZoom(mode);
+                        return;
+                    }
+                }
+            } catch (IllegalArgumentException ex) {
+                Timber.w(ex, "Invalid stored zoom preference");
+            }
+        }
+
+        // Compatibility with the previous prototype's integer per-episode/movie settings.
+        BaseItemDto item = mItems != null ? getCurrentlyPlayingItem() : null;
+        int legacy = item != null && item.getId() != null ? prefs.getInt(item.getId().toString(), 0) : 0;
+        if (legacy >= 105 && legacy <= 160 && legacy % 5 == 0) {
+            mVideoManager.setManualZoomPercent(legacy);
+            return;
+        }
+
+        mVideoManager.setZoom(userPreferences.getValue().get(UserPreferences.Companion.getPlayerZoomMode()));
     }
 
     /**

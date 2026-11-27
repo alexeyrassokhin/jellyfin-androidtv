@@ -49,6 +49,12 @@ class ZoomAction(
 				isChecked = playbackController.zoomMode == ZoomMode.STRETCH
 			}
 
+			item(context.getString(R.string.lbl_detect_black_bars)) {
+				playbackController.setZoom(ZoomMode.DETECT_BLACK_BARS)
+			}.apply {
+				isChecked = playbackController.zoomMode == ZoomMode.DETECT_BLACK_BARS
+			}
+
 			item(context.getString(R.string.lbl_zoom_increase, currentManualZoom)) {
 				playbackController.setManualZoomPercent(currentManualZoom + 5)
 			}

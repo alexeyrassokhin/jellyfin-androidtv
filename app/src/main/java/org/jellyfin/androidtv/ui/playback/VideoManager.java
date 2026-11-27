@@ -83,6 +83,7 @@ public class VideoManager {
     private PlaybackOverlayFragmentHelper _helper;
     public ExoPlayer mExoPlayer;
     private PlayerView mExoPlayerView;
+    private final AutoBlackBarZoom autoBlackBarZoom;
     private Handler mHandler = new Handler();
 
     private long mMetaDuration = -1;
@@ -120,6 +121,8 @@ public class VideoManager {
 
         mExoPlayerView = view.findViewById(R.id.exoPlayerView);
         mExoPlayerView.setPlayer(mExoPlayer);
+        autoBlackBarZoom = new AutoBlackBarZoom(mExoPlayerView, mHandler,
+                () -> mExoPlayer != null && mExoPlayer.isPlaying() && !isContracted);
         int strokeColor = userPreferences.get(UserPreferences.Companion.getSubtitleTextStrokeColor()).intValue();
         int textWeight = userPreferences.get(UserPreferences.Companion.getSubtitlesTextWeight());
         CaptionStyleCompat subtitleStyle = new CaptionStyleCompat(
@@ -296,6 +299,7 @@ public class VideoManager {
     }
 
     public void setZoom(@NonNull ZoomMode mode) {
+        autoBlackBarZoom.stop();
         mZoomMode = mode;
         switch (mode) {
             case FIT:
@@ -308,6 +312,7 @@ public class VideoManager {
                 mExoPlayerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FILL);
                 break;
             case MANUAL:
+            case DETECT_BLACK_BARS:
                 mExoPlayerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
                 break;
         }
@@ -320,6 +325,7 @@ public class VideoManager {
             surface.setScaleX(scale);
             surface.setScaleY(scale);
         }
+        if (mode == ZoomMode.DETECT_BLACK_BARS) autoBlackBarZoom.start();
     }
 
     public void setMetaDuration(long duration) {
@@ -414,6 +420,8 @@ public class VideoManager {
     }
 
     public void setMediaStreamInfo(ApiClient api, StreamInfo streamInfo) {
+        // Do not carry a detected crop from one stream/episode to another.
+        if (mZoomMode == ZoomMode.DETECT_BLACK_BARS) autoBlackBarZoom.start();
         String path = streamInfo.getMediaUrl();
         if (path == null) {
             Timber.w("Video path is null cannot continue");
@@ -628,6 +636,7 @@ public class VideoManager {
     }
 
     public void destroy() {
+        autoBlackBarZoom.stop();
         mPlaybackControllerNotifiable = null;
         stopPlayback();
         releasePlayer();

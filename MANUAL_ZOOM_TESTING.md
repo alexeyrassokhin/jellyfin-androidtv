@@ -36,3 +36,10 @@ right**; it does not preserve the full widescreen composition.
 Use the test file the user observed failing with the stock **Auto Crop** mode
 on NVIDIA Shield. Confirm the manual mode works independently of aspect-ratio
 metadata, then test HDR and subtitle behavior.
+
+## Auto detect black bars and series-wide preferences
+
+- Select **Auto detect black bars** (in Russian: **Автоопределение чёрных полос**) in the playback zoom menu. Existing Fit/Auto Crop/Stretch and manual zoom algorithms are unchanged. The new mode samples a 160×90 copy of the current SurfaceView buffer via Android PixelCopy every 2.5 seconds while playing. Three consistent measurements are required. Unreliable/dark frames keep the last valid crop. It fills the viewport using a uniform scale (maximum 2×); filling a wider or narrower movie necessarily loses some image content.
+- The selected zoom mode and manual percentage are now stored per movie or per series ID (all seasons/episodes sharing that ID). If the server does not supply a series ID the preference falls back to the individual item. Auto mode stores the mode, not the measured crop, and resets detection on a new stream. Legacy per-item manual values remain readable until a new explicit selection is made. Preferences are local to the app/device.
+- This detector is deliberately conservative; dark, uneven, subtitled, nonblack or asymmetric borders may be rejected. SurfaceView capture may be unavailable on some HDR/protected/hardware playback paths. A failed copy does not change the last valid crop. No automatic detection work is performed in the old modes.
+- Unit tests cover normal frames, encoded letterbox/pillarbox, native wide frames, dark scenes, and asymmetric borders. Device validation remains required: wait for a few samples, test a 3840×2160 letterboxed film, a 16:9 film, an aspect ratio change, subtitles, HDR and audio passthrough; then reopen another episode in the same series.

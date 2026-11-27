@@ -705,4 +705,5 @@
     <string name="lbl_zoom_decrease">Zoom -5%% (now %1$d%%)</string>
     <string name="lbl_zoom_reset">Reset zoom (100%%)</string>
     <string name="lbl_zoom_preset">Zoom %1$d%%</string>
+    <string name="lbl_detect_black_bars">Auto detect black bars</string>
 </resources>

@@ -24,3 +24,15 @@ Open the player **Zoom** menu, select 135%, and verify that the picture gets big
 - This is manual adjustment, **not automatic black-bar detection**.
 - The default zoom is used for items without a saved manual zoom value; saved values live only on this device.
 - If the video surface ignores transforms, the next iteration should use a verified Media3/SurfaceControl approach with device diagnostics before changing rendering paths.
+
+## Expected geometry for an embedded letterbox
+
+For a 2.39:1 movie embedded in a 16:9 (3840×2160) video frame, removing the
+vertical black bars by manual zoom takes approximately
+`(2.39 / (16 / 9)) × 100 = 134.4%`. The **135%** preset is therefore a
+useful first check. This fills the height but **crops image on the left and
+right**; it does not preserve the full widescreen composition.
+
+Use the test file the user observed failing with the stock **Auto Crop** mode
+on NVIDIA Shield. Confirm the manual mode works independently of aspect-ratio
+metadata, then test HDR and subtitle behavior.
